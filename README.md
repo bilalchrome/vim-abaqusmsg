@@ -24,6 +24,8 @@ Plug 'bilalchrome/vim-abaqusmsg'
 git clone https://github.com/bilalchrome/vim-abaqusmsg $HOME/vimfiles/pack/abaqus/start/vim-abaqusmsg
 # Linux / macOS
 git clone https://github.com/bilalchrome/vim-abaqusmsg ~/.vim/pack/abaqus/start/vim-abaqusmsg
+# Linux / macOS, if your vimrc is ~/.config/vim/vimrc (and there is no ~/.vimrc or ~/.vim/vimrc)
+git clone https://github.com/bilalchrome/vim-abaqusmsg ~/.config/vim/pack/abaqus/start/vim-abaqusmsg
 ```
 
 Then run `:helptags ALL` in Vim.

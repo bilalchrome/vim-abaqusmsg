@@ -1,32 +1,41 @@
 #!/bin/sh
-# Installs vim-abaqusmsg for Vim (and Neovim, if present) on Linux/macOS.
+# Installs vim-abaqusmsg for Vim on Linux/macOS.
 #   sh install.sh            install
 #   sh install.sh --uninstall
+#
+# Vim reads ~/.vimrc or ~/.vim/vimrc and uses ~/.vim. Newer Vim versions also
+# support $XDG_CONFIG_HOME/vim (default ~/.config/vim), but only when neither
+# ~/.vimrc nor ~/.vim/vimrc exists and $XDG_CONFIG_HOME/vim/vimrc does.
 set -e
 src=$(cd "$(dirname "$0")" && pwd)
-targets="$HOME/.vim/pack/abaqus/start/vim-abaqusmsg"
-if command -v nvim >/dev/null 2>&1; then
-  targets="$targets ${XDG_DATA_HOME:-$HOME/.local/share}/nvim/site/pack/abaqus/start/vim-abaqusmsg"
+xdgdir="${XDG_CONFIG_HOME:-$HOME/.config}/vim"
+pkg="pack/abaqus/start/vim-abaqusmsg"
+
+if [ ! -f "$HOME/.vimrc" ] && [ ! -f "$HOME/.vim/vimrc" ] && [ -f "$xdgdir/vimrc" ]; then
+  vimdir="$xdgdir"
+else
+  vimdir="$HOME/.vim"
+fi
+dest="$vimdir/$pkg"
+
+if [ "$1" = "--uninstall" ]; then
+  for d in "$HOME/.vim/$pkg" "$xdgdir/$pkg"; do
+    [ -d "$d" ] && rm -rf "$d" && echo "Removed $d"
+  done
+  exit 0
 fi
 
-for dest in $targets; do
-  if [ "$1" = "--uninstall" ]; then
-    rm -rf "$dest" && echo "Removed $dest"
-    continue
-  fi
-  rm -rf "$dest"
-  mkdir -p "$dest"
-  cp -R "$src/autoload" "$src/doc" "$src/ftdetect" "$src/ftplugin" "$src/syntax" "$dest/"
-  echo "Installed to $dest"
-done
-[ "$1" = "--uninstall" ] && exit 0
+rm -rf "$dest"
+mkdir -p "$dest"
+cp -R "$src/autoload" "$src/doc" "$src/ftdetect" "$src/ftplugin" "$src/syntax" "$dest/"
+echo "Installed to $dest"
 
 if command -v vim >/dev/null 2>&1; then
-  vim -u NONE -i NONE -es -c "helptags $HOME/.vim/pack/abaqus/start/vim-abaqusmsg/doc" -c 'qa!' || true
+  vim -u NONE -i NONE -es -c "helptags $dest/doc" -c 'qa!' || true
   echo "Help tags generated (:help abaqusmsg)."
 fi
 
-for rc in "$HOME/.vimrc" "$HOME/.vim/vimrc"; do
+for rc in "$HOME/.vimrc" "$HOME/.vim/vimrc" "$xdgdir/vimrc"; do
   if [ -f "$rc" ] && grep -n '\*\.msg' "$rc" >/dev/null; then
     echo "WARNING: $rc has lines for *.msg files that may override the plugin:"
     grep -n '\*\.msg' "$rc" | sed 's/^/    line /'

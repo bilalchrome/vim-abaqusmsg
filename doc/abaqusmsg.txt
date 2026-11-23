@@ -13,10 +13,13 @@ CONTENTS                                                   *abaqusmsg*
 ==============================================================================
 1. Installation                                    *abaqusmsg-install*
 
-Copy the folders into your Vim directory, keeping the structure:
-    Windows:  %USERPROFILE%\vimfiles\{syntax,ftdetect,ftplugin,autoload,doc}
-    Linux:    ~/.vim/{syntax,ftdetect,ftplugin,autoload,doc}
-Then run  :helptags ~/vimfiles/doc  (or ~/.vim/doc) once.
+Put the plugin in a package directory |packages|:
+    Windows:      ~/vimfiles/pack/abaqus/start/vim-abaqusmsg
+    Linux/macOS:  ~/.vim/pack/abaqus/start/vim-abaqusmsg
+On Linux/macOS, newer Vim versions use ~/.config/vim instead of ~/.vim when
+~/.config/vim/vimrc exists and neither ~/.vimrc nor ~/.vim/vimrc does
+(see |xdg-vimrc|). Install into ~/.config/vim/pack/... in that case.
+Then run  :helptags ALL  once.
 
 The vimrc needs:  >
     filetype plugin on
