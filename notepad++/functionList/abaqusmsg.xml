@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Notepad++ Function List parser for Abaqus .msg files (UDL "Abaqus msg").
+  The panel lists, in file order:
+    - every step start
+    - every increment attempt (ATTEMPT NUMBER 2 or higher = a cutback happened)
+    - divergence notes and ***ERROR messages
+  Click an entry to jump to it.
+-->
+<NotepadPlus>
+	<functionList>
+		<parser
+			displayName="Abaqus msg"
+			id         ="abaqusmsg_increments"
+		>
+			<function
+				mainExpr="(?m)^[\t ]*(?:STEP[\t ]+\d+[\t ]+INCREMENT[\t ]+\d+[\t ]+STEP TIME|INCREMENT[\t ]+\d+[\t ]+STARTS\.[^\r\n]*|\*\*\*ERROR:[^\r\n]*|\*\*\*NOTE: THE SOLUTION APPEARS TO BE DIVERGING[^\r\n]*)"
+			>
+				<functionName>
+					<nameExpr expr="(?:STEP[\t ]+\d+|INCREMENT[\t ]+\d+[\t ]+STARTS\.[^\r\n]*|\*\*\*ERROR:[^\r\n]*|\*\*\*NOTE: THE SOLUTION APPEARS TO BE DIVERGING)" />
+				</functionName>
+			</function>
+		</parser>
+	</functionList>
+</NotepadPlus>

@@ -1,0 +1,118 @@
+*abaqusmsg.txt*  Abaqus/Standard message file (.msg) support
+
+==============================================================================
+CONTENTS                                                   *abaqusmsg*
+
+  1. Installation .......................... |abaqusmsg-install|
+  2. Highlighting .......................... |abaqusmsg-syntax|
+  3. Folding ............................... |abaqusmsg-folding|
+  4. Motions ............................... |abaqusmsg-motions|
+  5. Commands .............................. |abaqusmsg-commands|
+  6. Options ............................... |abaqusmsg-options|
+
+==============================================================================
+1. Installation                                    *abaqusmsg-install*
+
+Copy the folders into your Vim directory, keeping the structure:
+    Windows:  %USERPROFILE%\vimfiles\{syntax,ftdetect,ftplugin,autoload,doc}
+    Linux:    ~/.vim/{syntax,ftdetect,ftplugin,autoload,doc}
+Then run  :helptags ~/vimfiles/doc  (or ~/.vim/doc) once.
+
+The vimrc needs:  >
+    filetype plugin on
+    syntax on
+<
+*.msg files are recognised as Abaqus output when the first 60 lines mention
+Abaqus or contain a STEP header, so Outlook .msg files are left alone.
+
+Abaqus on Windows writes CRLF line endings, but the equation-solver lines
+are LF only. Vim then reads the file as 'fileformat' unix and shows ^M on
+most lines. Such files are re-read with ++ff=dos automatically (see
+|g:abaqusmsg_fix_fileformat|).
+
+==============================================================================
+2. Highlighting                                     *abaqusmsg-syntax*
+
+Meaning of the main groups (shown with the 'okabe' palette):
+
+  converged checks, STEP TIME COMPLETED ...... blue
+  NOT ACHIEVED / TOO LARGE / OUTSIDE OF ...... orange
+  cutbacks, divergence, ATTEMPT NUMBER >= 2 .. bold underlined vermilion
+  ***WARNING ................................. yellow
+  ***ERROR, runtime exceptions ............... bold vermilion
+  ***NOTE .................................... grey italic
+  severe discontinuity iterations ............ purple
+  equilibrium iterations ..................... green
+  INCREMENT ... STARTS ....................... bold underlined
+  header boilerplate ......................... grey (dimmed)
+
+Numbers, node labels, DOFs and contact pairs are highlighted on their own,
+so they stay visible inside the LARGEST ... and MAX. ... ERROR lines.
+
+Multi-line ***WARNING/***ERROR/***NOTE messages are highlighted as one
+block. A message continues while the next line is indented by 4 or more
+spaces.
+
+All groups start with "abaqusmsg" and can be changed in your vimrc, e.g. >
+    autocmd ColorScheme * hi abaqusmsgGood guifg=#0072B2
+<
+==============================================================================
+3. Folding                                          *abaqusmsg-folding*
+
+Level 1: one fold per step, plus one for the final summary.
+Level 2: one fold per increment attempt.
+
+With the default foldlevel=1, every attempt is closed and shows a summary:
+>
+  INCREMENT    1  attempt 3   dt 6.250E-04  ✗ cut back   10 iter (10 SDI)
+      10 warnings  - the solution appears to be diverging. ...
+  INCREMENT    1  attempt 4   dt 1.563E-04  ✓ t=1.563E-04  23 iter (8 SDI)
+<
+Use zo / zc / zR / zM as usual.
+
+==============================================================================
+4. Motions                                          *abaqusmsg-motions*
+
+All motions take a count and work in normal, visual and operator-pending
+mode. Each jump is added to the jumplist, so use CTRL-O to go back.
+
+  ]]  [[    next / previous increment attempt
+  ]a  [a    next / previous retried attempt (ATTEMPT NUMBER 2 or more)
+  ]S  [S    next / previous step
+  ]w  [w    next / previous ***WARNING, ***ERROR or ***NOTE
+  ]e  [e    next / previous ***ERROR or runtime exception
+  ]x  [x    next / previous failed convergence check
+  ]d  [d    next / previous divergence or cutback message
+
+==============================================================================
+5. Commands                                         *abaqusmsg-commands*
+
+:AbaqusIncrements      Location list with one line per increment attempt
+                       (same summary as the fold text). Press <CR> on an
+                       entry to jump to it.
+:AbaqusProblems[!]     Location list of errors, warnings, divergence and
+                       retried attempts. Repeated identical warnings are
+                       listed once; with ! all of them are listed, plus
+                       every failed convergence check.
+:AbaqusFollow[!]       Follow a running analysis: reload the file every 5 s
+                       and stay at the end. Stops by itself when the
+                       analysis ends; ! stops it.
+
+==============================================================================
+6. Options                                          *abaqusmsg-options*
+
+*g:abaqusmsg_palette*        'links' (default): colours come from your
+                             colorscheme.
+                             'okabe': colourblind-safe Okabe-Ito colours
+                             (blue good, orange bad); light and dark
+                             backgrounds are both supported.
+*g:abaqusmsg_dim_boilerplate*  0: do not dim header boilerplate. Default 1.
+*g:abaqusmsg_fix_fileformat*   0: do not re-read mixed CRLF/LF files as dos.
+*g:abaqusmsg_folding*          0: no folding. Default 1.
+*g:abaqusmsg_foldlevel*        initial 'foldlevel'. Default 1.
+*g:abaqusmsg_fold_max_lines*   no folding above this many lines (3000000).
+*g:abaqusmsg_scan_lines*       lines scanned per fold summary (20000).
+*g:abaqusmsg_no_mappings*      1: no ]] [[ ... mappings.
+*g:abaqusmsg_follow_ms*        :AbaqusFollow reload interval (5000).
+
+ vim:tw=78:ts=8:ft=help:norl:
