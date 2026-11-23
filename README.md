@@ -58,4 +58,4 @@ If `:set ft?` doesn't show `abaqusmsg`, remove any `*.msg` autocommands from you
 
 ## License
 
-MIT
+GPL-3.0 (see [LICENSE](LICENSE))

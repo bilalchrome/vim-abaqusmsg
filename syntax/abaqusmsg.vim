@@ -2,7 +2,7 @@
 " Language:     Abaqus/Standard message file (*.msg)
 " Maintainer:   Bilal Abdul Halim
 " Version:      2.0.0
-" License:      MIT (see LICENSE)
+" License:      GPL-3.0 (see LICENSE)
 "
 " Design
 "   * Data lines (LARGEST ..., MAX. ... ERROR, AVERAGE ...) highlight only
