@@ -1,12 +1,13 @@
 # Installs Abaqus .msg support for Notepad++ 8 or newer (current Windows user).
 #
 #   Close Notepad++ first, then double-click install-notepad++.bat, or:
-#     powershell -ExecutionPolicy Bypass -File install-notepad++.ps1 [-Dark] [-ConfigDir <path>] [-Uninstall]
+#     powershell -ExecutionPolicy Bypass -File install-notepad++.ps1 [-ConfigDir <path>] [-Uninstall]
 #
-#   -Dark        use the dark-background colours
+#   Installs a light and a dark variant; Notepad++ uses the dark one while its dark mode is on.
+#
 #   -ConfigDir   Notepad++ settings folder, for portable installs (default: %AppData%\Notepad++)
 
-param([switch]$Dark, [string]$ConfigDir = "$env:APPDATA\Notepad++", [switch]$Uninstall)
+param([string]$ConfigDir = "$env:APPDATA\Notepad++", [switch]$Uninstall)
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
 
@@ -47,7 +48,8 @@ function Get-Map {
 }
 $xml = Get-Map
 $amap = $xml.SelectSingleNode('//associationMap')
-$old = $amap.SelectNodes("association[@userDefinedLangName='Abaqus msg']")
+$names = 'Abaqus msg', 'Abaqus msg (dark mode)'
+$old = $amap.SelectNodes("association[starts-with(@userDefinedLangName,'Abaqus msg')]")
 foreach ($n in $old) { [void]$amap.RemoveChild($n) }
 
 if ($Uninstall) {
@@ -56,16 +58,17 @@ if ($Uninstall) {
     return
 }
 
-$variant = if ($Dark) { 'dark' } else { 'light' }
-Copy-Item (Join-Path $src "AbaqusMsg_$variant.xml") $udlDir
+Copy-Item (Join-Path $src 'AbaqusMsg_light.xml'), (Join-Path $src 'AbaqusMsg_dark.xml') $udlDir
 Copy-Item (Join-Path $src 'functionList\abaqusmsg.xml') $flDir
 
 Copy-Item $map "$map.bak" -Force
-$e = $xml.CreateElement('association')
-$e.SetAttribute('id', 'abaqusmsg.xml')
-$e.SetAttribute('userDefinedLangName', 'Abaqus msg')
-[void]$amap.AppendChild($e)
+foreach ($n in $names) {
+    $e = $xml.CreateElement('association')
+    $e.SetAttribute('id', 'abaqusmsg.xml')
+    $e.SetAttribute('userDefinedLangName', $n)
+    [void]$amap.AppendChild($e)
+}
 $xml.Save($map)
 
-Write-Host "Installed ($variant colours) into $ConfigDir"
+Write-Host "Installed into $ConfigDir (light and dark mode colours)"
 Write-Host 'Start Notepad++ and open a .msg file. View > Function List shows the increments.'

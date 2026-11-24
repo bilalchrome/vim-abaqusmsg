@@ -16,29 +16,38 @@ Mixed CRLF/LF line endings need no fix: Notepad++ shows them correctly.
 ## Install
 
 1. Close Notepad++.
-2. Double-click `install-notepad++.bat`. For a dark theme, run
-   `powershell -ExecutionPolicy Bypass -File install-notepad++.ps1 -Dark`.
-3. Start Notepad++ and open a `.msg` file. The *Language* menu should show **Abaqus msg**.
+2. Double-click `install-notepad++.bat`.
+3. Start Notepad++ and open a `.msg` file. The *Language* menu should show **Abaqus msg**, or
+   **Abaqus msg (dark mode)** while Notepad++ is in dark mode.
 
 The installer does three things:
 
-- copies `AbaqusMsg_light.xml` or `AbaqusMsg_dark.xml` to `%AppData%\Notepad++\userDefineLangs\`
+- copies `AbaqusMsg_light.xml` and `AbaqusMsg_dark.xml` to `%AppData%\Notepad++\userDefineLangs\`. Notepad++
+  uses the dark one automatically while **Settings → Preferences → Dark Mode** is on.
 - copies `functionList\abaqusmsg.xml` to `%AppData%\Notepad++\functionList\`
-- adds one line to `overrideMap.xml` in that folder (a backup is saved as `overrideMap.xml.bak`)
+- adds two lines to `overrideMap.xml` in that folder (a backup is saved as `overrideMap.xml.bak`)
 
 For a portable Notepad++, add `-ConfigDir <folder that contains config.xml>`. To remove everything, add
 `-Uninstall`.
 
 ### Manual install
 
-1. Use **Language → User Defined Language → Define your language… → Import…** and choose one of the
+1. Use **Language → User Defined Language → Define your language… → Import…** and import both
    `AbaqusMsg_*.xml` files. Restart Notepad++.
 2. Copy `functionList\abaqusmsg.xml` to `%AppData%\Notepad++\functionList\`.
 3. In `overrideMap.xml` in that folder, add this line inside `<associationMap>`:
 
    ```xml
    <association id="abaqusmsg.xml" userDefinedLangName="Abaqus msg" />
+   <association id="abaqusmsg.xml" userDefinedLangName="Abaqus msg (dark mode)" />
    ```
+
+The colours set only the text colour, so the background always comes from your Notepad++ theme
+(**Settings → Style Configurator**).
+
+If words show up in light boxes in dark mode, an older copy is still loaded. Open
+**Language → User Defined Language → Define your language…**, select each **Abaqus msg** entry, click
+**Remove**, then run the installer again.
 
 ## Usage
 
