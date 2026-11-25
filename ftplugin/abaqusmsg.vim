@@ -8,8 +8,11 @@ let b:did_ftplugin = 1
 let s:cpo_save = &cpo
 set cpo&vim
 
-let b:undo_ftplugin = 'setlocal foldmethod< foldexpr< foldtext< foldlevel< foldenable< autoread<'
+" SaveFolds first: on a reload the filetype plugin runs again and resets the folds
+let b:undo_ftplugin = 'silent! call abaqusmsg#SaveFolds()'
+      \ . ' | setlocal foldmethod< foldexpr< foldtext< foldlevel< foldenable< autoread<'
       \ . ' | silent! call abaqusmsg#Follow(1)'
+      \ . ' | silent! execute "autocmd! abaqusmsg_folds * <buffer>"'
 
 " ----------------------------------------------------------------- folding
 " One fold per step, one nested fold per increment attempt. The closed fold
@@ -21,6 +24,14 @@ if get(g:, 'abaqusmsg_folding', 1) && line('$') <= get(g:, 'abaqusmsg_fold_max_l
   setlocal foldtext=abaqusmsg#FoldText()
   let &l:foldlevel = get(g:, 'abaqusmsg_foldlevel', 1)
   setlocal foldenable
+  " keep open and closed folds when the file is reloaded (:e, :checktime, :AbaqusFollow)
+  if get(g:, 'abaqusmsg_keep_folds', 1)
+    augroup abaqusmsg_folds
+      autocmd! * <buffer>
+      autocmd BufUnload <buffer> silent! call abaqusmsg#SaveFolds(str2nr(expand('<abuf>')))
+    augroup END
+    call abaqusmsg#RestoreFolds()
+  endif
 endif
 
 " ----------------------------------------------------------------- motions

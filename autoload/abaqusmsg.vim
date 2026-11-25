@@ -280,6 +280,76 @@ function! abaqusmsg#Problems(bang) abort
   endif
 endfunction
 
+" ---------------------------------------------------------------- keep folds on reload
+" Reloading the file (:e, :checktime, :AbaqusFollow) rebuilds the folds and
+" the filetype plugin resets 'foldlevel', so every fold would close again.
+" SaveFolds() runs from BufUnload (:e) and from b:undo_ftplugin (reloads that
+" keep the folds until the filetype plugin runs again); RestoreFolds() runs at
+" the end of the filetype plugin. Abaqus only appends to the file, so fold
+" start lines stay valid; new folds follow 'foldlevel'.
+function! s:FoldStarts() abort
+  let starts = {}
+  let view = winsaveview()
+  " :global is much faster than a getline() loop on large files
+  execute 'silent keepjumps keeppatterns global/' . escape(s:pat.step . '\|' . s:pat.end, '/')
+        \ . '/let starts[line(".")] = 1'
+  execute 'silent keepjumps keeppatterns global/' . escape(s:pat.increment, '/')
+        \ . '/let starts[line(".")] = 2'
+  call winrestview(view)
+  return starts
+endfunction
+
+function! abaqusmsg#SaveFolds(...) abort
+  let buf = a:0 ? a:1 : bufnr('%')
+  " keep the first save of a reload: later calls see the folds already reset
+  if buf != bufnr('%') || exists('b:abaqusmsg_folds') || &l:foldmethod !=# 'expr'
+        \ || &filetype !=# 'abaqusmsg' || line('$') <= 1
+    return
+  endif
+  let open = {}
+  for [lnum, level] in items(s:FoldStarts())
+    let open[lnum] = [level, foldclosed(lnum) == -1]
+  endfor
+  let b:abaqusmsg_folds = {'open': open, 'foldlevel': &l:foldlevel,
+        \ 'foldenable': &l:foldenable, 'view': winsaveview()}
+endfunction
+
+function! abaqusmsg#RestoreFolds() abort
+  if !exists('b:abaqusmsg_folds')
+    return
+  endif
+  let s = b:abaqusmsg_folds
+  unlet b:abaqusmsg_folds
+  if &l:foldmethod !=# 'expr'
+    return
+  endif
+  let &l:foldlevel = s.foldlevel
+  let &l:foldenable = s.foldenable
+  let last = line('$')
+  let known = filter(copy(s.open), 'v:key <= last')
+  let steps = sort(map(keys(filter(copy(known), 'v:val[0] == 1')), 'str2nr(v:val)'), 'n')
+  let incs = sort(map(keys(filter(copy(known), 'v:val[0] == 2')), 'str2nr(v:val)'), 'n')
+  " open the steps first so each attempt can be set, then close steps again
+  for lnum in steps
+    if foldclosed(lnum) == lnum
+      execute lnum . 'foldopen'
+    endif
+  endfor
+  for lnum in incs
+    if known[lnum][1] && foldclosed(lnum) == lnum
+      execute lnum . 'foldopen'
+    elseif !known[lnum][1] && foldclosed(lnum) == -1 && foldlevel(lnum) == 2
+      execute lnum . 'foldclose'
+    endif
+  endfor
+  for lnum in steps
+    if !known[lnum][1] && foldclosed(lnum) == -1
+      execute lnum . 'foldclose'
+    endif
+  endfor
+  call winrestview(s.view)
+endfunction
+
 " ---------------------------------------------------------------- follow a running job
 function! abaqusmsg#Follow(stop) abort
   if exists('b:abaqusmsg_timer')

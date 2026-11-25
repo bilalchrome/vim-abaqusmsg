@@ -71,7 +71,9 @@ With the default foldlevel=1, every attempt is closed and shows a summary:
       10 warnings  - the solution appears to be diverging. ...
   INCREMENT    1  attempt 4   dt 1.563E-04  ✓ t=1.563E-04  23 iter (8 SDI)
 <
-Use zo / zc / zR / zM as usual.
+Use zo / zc / zR / zM as usual. Folds you opened or closed stay that way when
+the file is reloaded with :e, :checktime or :AbaqusFollow; new increments
+follow 'foldlevel' (see |g:abaqusmsg_keep_folds|).
 
 ==============================================================================
 4. Motions                                          *abaqusmsg-motions*
@@ -113,6 +115,7 @@ mode. Each jump is added to the jumplist, so use CTRL-O to go back.
 *g:abaqusmsg_fix_fileformat*   0: do not re-read mixed CRLF/LF files as dos.
 *g:abaqusmsg_folding*          0: no folding. Default 1.
 *g:abaqusmsg_foldlevel*        initial 'foldlevel'. Default 1.
+*g:abaqusmsg_keep_folds*       0: close the folds again on every reload. Default 1.
 *g:abaqusmsg_fold_max_lines*   no folding above this many lines (3000000).
 *g:abaqusmsg_scan_lines*       lines scanned per fold summary (20000).
 *g:abaqusmsg_no_mappings*      1: no ]] [[ ... mappings.
