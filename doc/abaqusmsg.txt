@@ -67,9 +67,9 @@ Level 2: one fold per increment attempt.
 
 With the default foldlevel=1, every attempt is closed and shows a summary:
 >
-  INCREMENT    1  attempt 3   dt 6.250E-04  ✗ cut back   10 iter (10 SDI)
+  INCREMENT    1  attempt 3   dt 6.250E-04  ✗ cut back   10 iter (0 EQI, 10 SDI)
       10 warnings  - the solution appears to be diverging. ...
-  INCREMENT    1  attempt 4   dt 1.563E-04  ✓ t=1.563E-04  23 iter (8 SDI)
+  INCREMENT    1  attempt 4   dt 1.563E-04  ✓ t=1.563E-04  23 iter (15 EQI, 8 SDI)
 <
 Use zo / zc / zR / zM as usual. Folds you opened or closed stay that way when
 the file is reloaded with :e, :checktime or :AbaqusFollow; new increments

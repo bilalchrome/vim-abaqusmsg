@@ -129,10 +129,8 @@ function! s:AttemptText(info) abort
   else
     let s .= printf('%-14s', i.err ? 'FAILED' : 'cut back')
   endif
-  let s .= printf(' %3d iter', i.iters)
-  if i.sdi
-    let s .= printf(' (%d SDI)', i.sdi)
-  endif
+  " every iteration is either an equilibrium (EQI) or a severe discontinuity (SDI) iteration
+  let s .= printf(' %3d iter (%d EQI, %d SDI)', i.iters, i.iters - i.sdi, i.sdi)
   if i.err
     let s .= printf('  %d error%s', i.err, i.err == 1 ? '' : 's')
   endif
@@ -147,7 +145,6 @@ endfunction
 
 function! abaqusmsg#FoldText() abort
   let l = getline(v:foldstart)
-  let n = v:foldend - v:foldstart + 1
   if !exists('b:abaqusmsg_ftcache') || b:abaqusmsg_ftcache.tick != b:changedtick
     let b:abaqusmsg_ftcache = {'tick': b:changedtick}
   endif
@@ -171,7 +168,7 @@ function! abaqusmsg#FoldText() abort
   else
     let text = substitute(l, '^\s\+\|\s\+$', '', 'g')
   endif
-  let text = printf('%s%s  [%d lines]', repeat('  ', v:foldlevel - 1), text, n)
+  let text = repeat('  ', v:foldlevel - 1) . text
   let b:abaqusmsg_ftcache[key] = text
   return text
 endfunction

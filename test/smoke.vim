@@ -37,7 +37,7 @@ call s:Check('node number is a separate token',
 
 call s:Check('folding enabled', &foldmethod ==# 'expr')
 let s:inc = search('INCREMENT\s\+1 STARTS', 'nw')
-call s:Check('fold text summarises attempt', foldtextresult(s:inc) =~# 'INCREMENT\s\+1\s\+attempt 1 .* cut back',
+call s:Check('fold text summarises attempt', foldtextresult(s:inc) =~# 'INCREMENT\s\+1\s\+attempt 1 .* cut back .* (\d\+ EQI, \d\+ SDI)' && foldtextresult(s:inc) !~# 'lines\]',
       \ foldtextresult(s:inc))
 
 let s:inc2 = search('INCREMENT\s\+2 STARTS', 'nw')
