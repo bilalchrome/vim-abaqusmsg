@@ -190,7 +190,8 @@ function! abaqusmsg#Jump(name, backward, visual) abort
 endfunction
 
 " ---------------------------------------------------------------- overviews
-function! abaqusmsg#Increments() abort
+" [start, stop] line ranges of every increment attempt, in file order
+function! s:Attempts() abort
   let last = line('$')
   let view = winsaveview()
   " find attempt starts and step/summary boundaries with search() (fast)
@@ -211,15 +212,22 @@ function! abaqusmsg#Increments() abort
     endif
   endwhile
   call winrestview(view)
-  let items = []
+  let ranges = []
   for i in range(len(starts))
     if type(starts[i]) != v:t_number
       continue
     endif
     let nxt = i + 1 < len(starts) ? starts[i + 1] : [last + 1]
-    let stop = (type(nxt) == v:t_number ? nxt : nxt[0]) - 1
-    let info = s:AttemptInfo(starts[i], stop)
-    call add(items, {'bufnr': bufnr('%'), 'lnum': starts[i], 'text': s:AttemptText(info),
+    call add(ranges, [starts[i], (type(nxt) == v:t_number ? nxt : nxt[0]) - 1])
+  endfor
+  return ranges
+endfunction
+
+function! abaqusmsg#Increments() abort
+  let items = []
+  for [start, stop] in s:Attempts()
+    let info = s:AttemptInfo(start, stop)
+    call add(items, {'bufnr': bufnr('%'), 'lnum': start, 'text': s:AttemptText(info),
           \ 'type': info.status ==# 'ok' ? '' : 'W'})
   endfor
   call setloclist(0, items, 'r')
@@ -275,6 +283,303 @@ function! abaqusmsg#Problems(bang) abort
   else
     lopen
   endif
+endfunction
+
+" ---------------------------------------------------------------- hotspots
+" Nodes that keep showing up in the convergence checks (largest residual,
+" increment and correction, contact force and penetration errors) and in
+" warnings, ranked by how often they appear in attempts that were cut back.
+let s:node_re = '\<NODE\%(\s\+NUMBER\)\=\s\+\zs[[:alnum:]_]\%([[:alnum:]_.-]*[[:alnum:]_]\)\='
+let s:pair_re = '([[:alnum:]_.\-]\+,\s*[[:alnum:]_.\-]\+)'
+
+" What a line says about its node, e.g. 'residual force', 'contact force', 'warning'
+function! s:HitLabel(lnum, t) abort
+  let m = matchlist(a:t, '^\s*LARGEST\s\+\%(SCALED\s\+\)\=\(RESIDUAL\|INCREMENT OF\|CORRECTION TO\)\s\+\(.\{-}\)\s\+[-+]\=\%(\d\|\.\d\)')
+  if !empty(m)
+    let what = substitute(tolower(substitute(m[2], '\.\s*$', '', '')), '\s\+', ' ', 'g')
+    return [tolower(matchstr(m[1], '^\S\+')) . ' ' . what, m[2] =~# 'CAV\.\s*VOL\|H\.PRESS']
+  endif
+  let m = matchlist(a:t, '^\s*MAX\.\s\+\(.\{-}\)\s\+ERROR\>')
+  if !empty(m)
+    return [tolower(substitute(m[1], 'CONTACT ', 'contact ', '')), 0]
+  endif
+  " node named in a ***WARNING / ***ERROR message, possibly on a continuation line
+  for l in range(a:lnum, max([1, a:lnum - 4]), -1)
+    let m = matchstr(getline(l), '^\s\=\*\*\*\s\=\zs\%(WARNING\|ERROR\)\ze:')
+    if !empty(m)
+      return [tolower(m), 0]
+    endif
+    if l < a:lnum && getline(l) !~# '^\s\{4,}\S'
+      break
+    endif
+  endfor
+  return ['', 0]
+endfunction
+
+function! s:CollectHotspots() abort
+  let nodes = {}
+  let internal = {}
+  let pairs = {}
+  " Same rule as the fold summaries: an attempt converged when it reports
+  " STEP TIME COMPLETED; the last attempt may still be running. One search
+  " pass for those lines is much faster than summarising every attempt.
+  let atts = s:Attempts()
+  let incs = map(copy(atts), 'matchstr(getline(v:val[0]), "\\%(INCREMENT\\|CYCLE\\)\\s\\+\\zs\\d\\+")')
+  let done = {}
+  let view = winsaveview()
+  call cursor(1, 1)
+  let flags = 'cW'
+  while 1
+    let lnum = search(s:pat.done, flags)
+    if lnum == 0
+      break
+    endif
+    let flags = 'W'
+    let done[lnum] = 1
+  endwhile
+  let failed = []
+  let dl = sort(map(keys(done), 'str2nr(v:val)'), 'n')
+  let j = 0
+  for i in range(len(atts))
+    while j < len(dl) && dl[j] < atts[i][0]
+      let j += 1
+    endwhile
+    let ok = j < len(dl) && dl[j] <= atts[i][1]
+    if !ok && i == len(atts) - 1
+      let ok = s:AttemptInfo(atts[i][0], atts[i][1]).status ==# 'running'
+    endif
+    call add(failed, !ok)
+  endfor
+  let a = -1
+  let last = line('$')
+  call cursor(empty(atts) ? last + 1 : atts[0][0], 1)
+  while !empty(atts)
+    let lnum = search('\<NODE\s', 'W')
+    if lnum == 0
+      break
+    endif
+    while a + 1 < len(atts) && atts[a + 1][0] <= lnum
+      let a += 1
+    endwhile
+    if a < 0 || lnum > atts[a][1]
+      continue
+    endif
+    let t = getline(lnum)
+    let node = matchstr(t, s:node_re)
+    if node !~# '\d'
+      continue
+    endif
+    let [label, isint] = s:HitLabel(lnum, t)
+    if empty(label)
+      continue
+    endif
+    let next = ''
+    if t =~# 'INSTANCE' || (lnum < last && getline(lnum + 1) =~# '^\s*INSTANCE')
+      let next = lnum < last ? getline(lnum + 1) : ''
+      let inst = matchstr(t . ' ' . next, '\<INSTANCE:\=\s*\zs[[:alnum:]_][[:alnum:]_.-]*')
+      if !empty(inst) && node !~# '\.'
+        let node = inst . '.' . node
+      endif
+    endif
+    let d = isint || t =~# '\<INTERNAL\s\+NODE\>' ? internal : nodes
+    if !has_key(d, node)
+      let d[node] = {'node': node, 'hits': 0, 'failed': 0, 'what': {}, 'incs': {}, 'pairs': {}, 'lines': []}
+    endif
+    let h = d[node]
+    let h.hits += 1
+    let h.failed += failed[a]
+    let h.what[label] = get(h.what, label, 0) + 1
+    let h.incs[incs[a]] = 1
+    if t =~# 'CONTACT PAIR'
+      let pair = matchstr(t =~# 'CONTACT PAIR\s*\r\=$' && lnum < last ? getline(lnum + 1) : t, s:pair_re)
+      if !empty(pair)
+        let h.pairs[pair] = 1
+        let pairs[pair] = 1
+      endif
+    endif
+    call add(h.lines, lnum)
+  endwhile
+  call winrestview(view)
+  return {'nodes': values(nodes), 'internal': values(internal), 'pairs': keys(pairs),
+        \ 'attempts': len(atts), 'failed': eval(join(failed + [0], '+'))}
+endfunction
+
+function! s:ByFailed(a, b) abort
+  return a:b.failed != a:a.failed ? a:b.failed - a:a.failed : a:b.hits - a:a.hits
+endfunction
+
+function! s:Pad(s, w) abort
+  return a:s . repeat(' ', a:w - strdisplaywidth(a:s))
+endfunction
+
+" '1-3', '1, 4, 7-9'
+function! s:Ranges(incs) abort
+  let n = sort(map(filter(copy(a:incs), 'v:val =~# "^\\d\\+$"'), 'str2nr(v:val)'), 'n')
+  let out = []
+  let i = 0
+  while i < len(n)
+    let j = i
+    while j + 1 < len(n) && n[j + 1] <= n[j] + 1
+      let j += 1
+    endwhile
+    call add(out, i == j ? string(n[i]) : n[i] . '-' . n[j])
+    let i = j + 1
+  endwhile
+  let s = join(out, ', ')
+  return strchars(s) > 14 ? strcharpart(s, 0, 13) . '…' : s
+endfunction
+
+function! s:What(what) abort
+  let items = sort(items(a:what), {a, b -> b[1] - a[1]})
+  return join(map(items, 'v:val[0] . " " . v:val[1]'), ' · ')
+endfunction
+
+function! abaqusmsg#Hotspots(...) abort
+  if &filetype !=# 'abaqusmsg'
+    echohl WarningMsg | echo 'AbaqusHotspots: not an Abaqus .msg buffer' | echohl None
+    return
+  endif
+  let src = win_getid()
+  let srcbuf = bufnr('%')
+  let name = expand('%:t')
+  let r = s:CollectHotspots()
+  let nodes = sort(r.nodes, function('s:ByFailed'))
+  let limit = a:0 && a:1 > 0 ? a:1 : get(g:, 'abaqusmsg_hotspots', 25)
+  let shown = nodes[: limit - 1]
+  let utf = &encoding ==# 'utf-8'
+  let [full, part] = utf ? ['█', '░'] : ['#', '.']
+  let width = 16
+  let top = empty(shown) ? 1 : max(map(copy(shown), 'v:val.hits'))
+  let pairs = len(r.pairs) > 1
+
+  let lines = [printf('Abaqus hotspots  %s  %s  %d attempt%s, %d cut back', name, utf ? '·' : '-',
+        \ r.attempts, r.attempts == 1 ? '' : 's', r.failed)]
+  if len(r.pairs) == 1
+    call add(lines, 'contact pair ' . r.pairs[0])
+  endif
+  call add(lines, printf('%s in attempts that were cut back   %s in converged attempts   ' .
+        \ '<CR> jump  n/N next hit  q close', full, part))
+  call add(lines, '')
+  let head = printf('  %s %s %8s %5s   %s %s', s:Pad('NODE', 18), s:Pad('', width), 'CUT BACK', 'ALL',
+        \ s:Pad('INCREMENTS', 15), 'FLAGGED BY')
+  call add(lines, head . (pairs ? '   CONTACT PAIR' : ''))
+  let first = len(lines) + 1
+  for h in shown
+    let nf = float2nr(round(width * h.failed / top))
+    let nt = max([1, float2nr(round(width * h.hits / top))])
+    let nf = h.failed > 0 ? max([1, min([nf, nt])]) : 0
+    let bar = repeat(full, nf) . repeat(part, nt - nf)
+    let row = printf('  %s %s %8s %5d   %s %s', s:Pad(h.node, 18), s:Pad(bar, width),
+          \ h.failed ? h.failed : '-', h.hits, s:Pad(s:Ranges(keys(h.incs)), 15), s:What(h.what))
+    if pairs
+      let row .= '   ' . join(keys(h.pairs), ' ')
+    endif
+    call add(lines, row)
+  endfor
+  if empty(shown)
+    call add(lines, '  (no nodes in the convergence checks)')
+  elseif len(nodes) > len(shown)
+    call add(lines, printf('  … %d more (:AbaqusHotspots %d shows them all)', len(nodes) - len(shown), len(nodes)))
+  endif
+  if !empty(r.internal)
+    let int = sort(r.internal, {a, b -> b.hits - a.hits})
+    call add(lines, '')
+    call add(lines, 'internal nodes (fluid cavity, hybrid pressure; rarely the cause): '
+          \ . join(map(copy(int), 'v:val.node . " ×" . v:val.hits'), ', '))
+  endif
+
+  " reuse the report window if it is open
+  let bufname = '[Abaqus hotspots]'
+  let win = bufwinnr('^' . escape(bufname, '[]') . '$')
+  if win > 0
+    execute win . 'wincmd w'
+  else
+    execute 'botright ' . min([len(lines) + 1, 18]) . 'new'
+    silent execute 'file ' . fnameescape(bufname)
+    setlocal buftype=nofile bufhidden=wipe noswapfile nobuflisted nowrap nonumber norelativenumber
+    setlocal nofoldenable nospell nolist cursorline winfixheight
+  endif
+  setlocal modifiable
+  silent %delete _
+  call setline(1, lines)
+  setlocal nomodifiable
+  let b:abaqusmsg_hot = {'src': src, 'srcbuf': srcbuf, 'first': first,
+        \ 'rows': map(copy(shown), '{"node": v:val.node, "lines": v:val.lines}')}
+  call s:HotspotSyntax(full, part)
+  nnoremap <silent> <buffer> <CR> :call abaqusmsg#HotspotJump()<CR>:let v:hlsearch = &hlsearch<CR>
+  nnoremap <silent> <buffer> q :close<CR>
+  call cursor(first, 3)
+endfunction
+
+function! s:HotspotSyntax(full, part) abort
+  syntax clear
+  syntax match abaqushotTitle   /\%1l.*/
+  syntax match abaqushotHead    /^  NODE .*/
+  syntax match abaqushotHelp    /^\S\+ in attempts .*/ contains=abaqushotFull,abaqushotPart
+  execute 'syntax match abaqushotFull /' . a:full . '\+/'
+  execute 'syntax match abaqushotPart /' . escape(a:part, '.') . '\+/'
+  syntax match abaqushotNode    /^  \zs\S\+/
+  syntax match abaqushotPair    /([[:alnum:]_.\-]\+,\s*[[:alnum:]_.\-]\+)/
+  syntax match abaqushotMuted   /^\%(internal nodes\|  …\|  (no\).*/
+  hi def link abaqushotTitle  Title
+  hi def link abaqushotHead   Comment
+  hi def link abaqushotHelp   Comment
+  hi def link abaqushotNode   abaqusmsgNode
+  hi def link abaqushotPair   abaqusmsgContactPair
+  hi def link abaqushotMuted  Comment
+  " the .msg highlight groups may not be loaded with 'links' fallbacks yet
+  hi def link abaqusmsgCutback ErrorMsg
+  hi def link abaqusmsgGood    Type
+  hi def link abaqusmsgNode    Identifier
+  hi def link abaqusmsgContactPair Constant
+  " Bars need a foreground colour only: many colorschemes draw ErrorMsg in
+  " reverse video, which would turn the block characters into empty cells.
+  call s:BarColour('abaqushotFull', 'abaqusmsgCutback')
+  call s:BarColour('abaqushotPart', 'abaqusmsgGood')
+endfunction
+
+function! s:BarColour(group, from) abort
+  let id = synIDtrans(hlID(a:from))
+  let out = []
+  for mode in ['gui', 'cterm']
+    " the colour you see: fg for reverse video, a background badge, else fg
+    let rev = synIDattr(id, 'reverse', mode) ==# '1' || synIDattr(id, 'inverse', mode) ==# '1'
+    let fg = synIDattr(id, 'fg#', mode)
+    let bg = synIDattr(id, 'bg#', mode)
+    let normal_bg = synIDattr(synIDtrans(hlID('Normal')), 'bg#', mode)
+    let c = !rev && bg !~# '^\%(-1\)\=$' && bg !=# normal_bg ? bg : fg
+    if !empty(c) && c !=# '-1'
+      call add(out, mode . 'fg=' . c)
+    endif
+  endfor
+  execute 'hi clear ' . a:group
+  execute empty(out) ? 'hi link ' . a:group . ' ' . a:from : 'hi ' . a:group . ' ' . join(out)
+endfunction
+
+" <CR> in the report: jump to the node's first hit after the cursor, fill the
+" location list with every hit and search for the node so n/N step through them.
+function! abaqusmsg#HotspotJump() abort
+  let r = get(b:, 'abaqusmsg_hot', {})
+  let i = line('.') - get(r, 'first', 0)
+  if empty(r) || i < 0 || i >= len(r.rows)
+    return
+  endif
+  let row = r.rows[i]
+  if win_gotoid(r.src) == 0 || bufnr('%') != r.srcbuf
+    echohl WarningMsg | echo 'AbaqusHotspots: the .msg window is gone' | echohl None
+    return
+  endif
+  let num = matchstr(row.node, '[^.]*$')
+  let @/ = '\<NODE\%(\s\+NUMBER\)\=\s\+\%(\S*\.\)\=\zs' . escape(num, '\.') . '\>'
+  call setloclist(0, map(copy(row.lines), '{"bufnr": r.srcbuf, "lnum": v:val, ' .
+        \ '"text": substitute(getline(v:val), "^\\s\\+\\|\\s\\+$", "", "g")}'), 'r')
+  call setloclist(0, [], 'a', {'title': 'Abaqus hotspot: node ' . row.node})
+  let nxt = filter(copy(row.lines), 'v:val > line(".")')
+  call cursor(empty(nxt) ? row.lines[0] : nxt[0], 1)
+  call search(@/, 'c', line('.'))
+  normal! zvzz
+  echo printf('node %s: %d hit%s (n/N next, :lopen lists them)', row.node, len(row.lines),
+        \ len(row.lines) == 1 ? '' : 's')
 endfunction
 
 " ---------------------------------------------------------------- keep folds on reload

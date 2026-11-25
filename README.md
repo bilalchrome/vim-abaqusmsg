@@ -46,6 +46,7 @@ Then run `:helptags ALL` in Vim.
 | `]w` `[w` | next / previous warning or error |
 | `:AbaqusIncrements` | list of all attempts |
 | `:AbaqusProblems` | list of errors, warnings and cutbacks |
+| `:AbaqusHotspots` | nodes that limit convergence, worst first |
 | `:AbaqusFollow` | follow a running job |
 
 Add `let g:abaqusmsg_palette = 'okabe'` to your vimrc for colourblind-safe colours.

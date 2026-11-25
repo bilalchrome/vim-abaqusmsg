@@ -99,6 +99,22 @@ mode. Each jump is added to the jumplist, so use CTRL-O to go back.
                        retried attempts. Repeated identical warnings are
                        listed once; with ! all of them are listed, plus
                        every failed convergence check.
+:AbaqusHotspots [N]    Report of the nodes that limit convergence: every
+                       node named in the convergence checks (largest
+                       residual, increment and correction, contact force
+                       and penetration errors) or in a warning, ranked by
+                       how often it appears in attempts that were cut back.
+                       Each row shows a bar (solid: hits in cut-back
+                       attempts, light: hits in converged attempts), the
+                       counts, the increments it appears in and what
+                       flagged it. Fluid cavity and hybrid pressure nodes
+                       (CAV. VOL., H.PRESS.) are listed separately at the
+                       bottom. Shows the top N nodes (default 25, see
+                       |g:abaqusmsg_hotspots|).
+                       In the report, <CR> jumps to the node's next hit in
+                       the .msg window, opens its fold, puts every hit in
+                       the location list and searches for the node, so n
+                       and N step through the hits. q closes the report.
 :AbaqusFollow[!]       Follow a running analysis: reload the file every 5 s
                        and stay at the end. Stops by itself when the
                        analysis ends; ! stops it.
@@ -120,5 +136,6 @@ mode. Each jump is added to the jumplist, so use CTRL-O to go back.
 *g:abaqusmsg_scan_lines*       lines scanned per fold summary (20000).
 *g:abaqusmsg_no_mappings*      1: no ]] [[ ... mappings.
 *g:abaqusmsg_follow_ms*        :AbaqusFollow reload interval (5000).
+*g:abaqusmsg_hotspots*        nodes shown by :AbaqusHotspots (25).
 
  vim:tw=78:ts=8:ft=help:norl:

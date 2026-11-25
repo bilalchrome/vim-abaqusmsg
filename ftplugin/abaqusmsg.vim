@@ -61,8 +61,9 @@ endif
 command! -buffer AbaqusIncrements call abaqusmsg#Increments()
 command! -buffer -bang AbaqusProblems call abaqusmsg#Problems(<bang>0)
 command! -buffer -bang AbaqusFollow call abaqusmsg#Follow(<bang>0)
+command! -buffer -nargs=? AbaqusHotspots call abaqusmsg#Hotspots(<f-args>)
 let b:undo_ftplugin .= '|delcommand AbaqusIncrements | delcommand AbaqusProblems'
-      \ . ' | delcommand AbaqusFollow'
+      \ . ' | delcommand AbaqusFollow | delcommand AbaqusHotspots'
 
 let &cpo = s:cpo_save
 unlet s:cpo_save

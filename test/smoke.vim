@@ -53,6 +53,18 @@ AbaqusProblems
 call s:Check(':AbaqusProblems finds problems', len(getloclist(0)) > 0, len(getloclist(0)))
 lclose
 
+AbaqusHotspots
+call s:Check(':AbaqusHotspots opens a report', bufname('%') ==# '[Abaqus hotspots]' && getline(1) =~# '2 cut back',
+      \ getline(1))
+call s:Check('hydrostatic nodes listed as internal', search('^internal nodes.*1000003', 'nw') > 0
+      \ && search('^  1000003', 'nw') == 0)
+call search('^  81884')
+execute "normal \<CR>"
+call s:Check('<CR> jumps to the node', &filetype ==# 'abaqusmsg' && getline('.') =~# 'NODE\s\+81884'
+      \ && len(getloclist(0)) == 13, line('.'))
+lclose
+wincmd o
+
 call cursor(1, 1)
 normal 2]]
 call s:Check(']] jumps to increment starts', getline('.') =~# 'ATTEMPT NUMBER  2', line('.'))
